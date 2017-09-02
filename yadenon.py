@@ -231,11 +231,6 @@ class DenonAVR(object,basic.LineReceiver):
 		cmd = resp[:2]
 		self._cmdswaiting.setdefault(cmd, []).append(d)
 
-		# XXX - not sure how to test this code to ensure that
-		# d isn't triggered till resp is received
-		# if resp is changed to cmd, test_update still passes,
-		# though it shouldn't.
-		# Probably need to
 		if len(resp) > 2:
 			@inlineCallbacks
 			def extraresp(d=d):

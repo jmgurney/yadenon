@@ -207,7 +207,6 @@ class DenonAVR(object):
 		if timo is not None:
 			self._ser.timeout = oldtimo
 
-		print 'rc:', `cmd`
 		return cmd
 
 	def process_events(self, till=None):
@@ -215,7 +214,6 @@ class DenonAVR(object):
 		process a single event.'''
 
 		assert till is None or len(till) == 2
-		print 'till:', `till`
 		while True:
 			event = self._readcmd()
 
@@ -324,10 +322,10 @@ class TestMethods(unittest.TestCase):
 
 		avr._ser.read.assert_has_calls([ mock.call(), mock.call() ])
 
-	@mock.patch('denon.DenonAVR._sendcmd')
-	@mock.patch('denon.DenonAVR.process_events')
+	@mock.patch('yadenon.DenonAVR._sendcmd')
+	@mock.patch('yadenon.DenonAVR.process_events')
 	@mock.patch('time.sleep')
-	@mock.patch('denon.DenonAVR.update')
+	@mock.patch('yadenon.DenonAVR.update')
 	def test_proc_PW(self, mupdate, msleep, mpevents, msendcmd):
 		avr = self.avr
 
@@ -387,7 +385,7 @@ class TestMethods(unittest.TestCase):
 
 		self.assertRaises(RuntimeError, avr.proc_ZM, 'foobar')
 
-	@mock.patch('denon.DenonAVR.process_events')
+	@mock.patch('yadenon.DenonAVR.process_events')
 	def test_proc_MV(self, pe):
 		avr = self.avr
 

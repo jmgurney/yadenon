@@ -120,8 +120,6 @@ class DenonAVR(object,basic.LineReceiver):
 		arg = self._makevolarg(arg)
 
 		self._sendcmd('MV', arg)
-		self.process_events(till='MV')
-		self.process_events(till='MV')
 
 	@property
 	def volmax(self):
@@ -233,7 +231,7 @@ class DenonAVR(object,basic.LineReceiver):
 class TestDenon(unittest.TestCase):
 	TEST_DEV = '/dev/tty.usbserial-FTC8DHBJ'
 
-	def test_comms(self):
+	def test_comms(self): # pragma: no cover
 		# comment out to make it easy to restore skip
 		self.skipTest('perf')
 
@@ -309,7 +307,7 @@ class TestMethods(unittest.TestCase):
 
 	@staticmethod
 	def getTimeout():
-		return .1
+		return .3
 
 	@inlineCallbacks
 	def test_update(self):
@@ -368,6 +366,25 @@ class TestMethods(unittest.TestCase):
 
 		# and we get correct response
 		self.assertEqual(d, 'AB123')
+
+	@inlineCallbacks
+	def test_vol(self):
+		avr = self.avr
+
+		d = avr.update()
+
+		self.assertEqual(self.tr.value(), 'PW?\r')
+
+		avr.dataReceived('PWON\rZMON\rMUOFF\rZ2MUOFF\rMUOFF\rPSFRONT A\r')
+		avr.dataReceived('MSDIRECT\rMSDIRECT\rMSDIRECT\rMV51\rMVMAX 80\r')
+
+		d = yield d
+
+		self.tr.clear()
+
+		avr.vol = 20
+
+		self.assertEqual(self.tr.value(), 'MV19\r')
 
 	def test_proc_events(self):
 		avr = self.avr

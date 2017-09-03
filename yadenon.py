@@ -389,16 +389,16 @@ class TestMethods(unittest.TestCase):
 	def test_proc_events(self):
 		avr = self.avr
 
-		self.avr.dataReceived('PWON\r')
+		avr.dataReceived('PWON\r')
 
 		self.assertEqual(avr.power, True)
 
-		self.avr.dataReceived('MUON\r' + 'PWON\r')
+		avr.dataReceived('MUON\r' + 'PWON\r')
 
 		self.assertEqual(avr.mute, True)
 		self.assertEqual(avr.power, True)
 
-		self.avr.dataReceived('PWSTANDBY\r')
+		avr.dataReceived('PWSTANDBY\r')
 
 		self.assertEqual(avr.power, False)
 

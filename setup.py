@@ -15,6 +15,9 @@ setup(name='yadenon',
           'twisted',
           'pyserial',
           ],
+      tests_require=[
+          'coverage',
+          ],
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',

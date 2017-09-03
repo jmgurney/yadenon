@@ -1,4 +1,7 @@
-from distutils.core import setup
+try:
+	from setuptools import setup
+except ImportError:
+	from distutils.core import setup
 
 setup(name='yadenon',
       version='2.0.0',
@@ -7,6 +10,11 @@ setup(name='yadenon',
       author_email='jmg@funkthat.com',
       url='https://github.com/jmgurney/yadenon',
       py_modules=['yadenon'],
+      install_requires=[
+          'mock',
+          'twisted',
+          'pyserial',
+          ],
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',

@@ -36,7 +36,6 @@ from twisted.protocols import basic
 from twisted.test import proto_helpers
 from twisted.trial import unittest
 import mock
-import threading
 import time
 import twisted.internet.serialport
 
@@ -120,7 +119,6 @@ class DenonAVR(object,basic.LineReceiver):
 			    self._volmax))
 		arg = self._makevolarg(arg)
 
-		time.sleep(1)
 		self._sendcmd('MV', arg)
 		self.process_events(till='MV')
 		self.process_events(till='MV')
@@ -184,36 +182,6 @@ class DenonAVR(object,basic.LineReceiver):
 
 		self.sendLine(cmd)
 
-	def _readcmd(self, timo=None):
-		'''If timo == 0, and the first read returns the empty string,
-		it will return an empty command, otherwise returns a
-		command.'''
-
-		cmd = ''
-
-		#while True:
-		if timo is not None:
-			oldtimo = self._ser.timeout
-			self._ser.timeout = timo
-
-		for i in xrange(30):
-			c = self._ser.read()
-			if (timo == 0 or timo is None) and c == '':
-				break
-
-			#print 'r:', `c`, `str(c)`
-			if c == '\r':
-				break
-
-			cmd += c
-		else:
-			raise RuntimeError('overrun!')
-
-		if timo is not None:
-			self._ser.timeout = oldtimo
-
-		return cmd
-
 	def lineReceived(self, event):
 		'''Process a line from the AVR.'''
 
@@ -238,7 +206,6 @@ class DenonAVR(object,basic.LineReceiver):
 					r = yield d
 					if r.startswith(resp):
 						returnValue(r)
-						return
 
 					d = self._waitfor(cmd)
 
@@ -266,9 +233,8 @@ class DenonAVR(object,basic.LineReceiver):
 class TestDenon(unittest.TestCase):
 	TEST_DEV = '/dev/tty.usbserial-FTC8DHBJ'
 
-	# comment out to make it easy to restore skip
-	#@unittest.TestCase.skipTest('real device')
 	def test_comms(self):
+		# comment out to make it easy to restore skip
 		self.skipTest('perf')
 
 		avr = DenonAVR(self.TEST_DEV)
@@ -420,8 +386,7 @@ class TestMethods(unittest.TestCase):
 		self.assertEqual(avr.power, False)
 
 	@mock.patch('yadenon.DenonAVR.sendLine')
-	@mock.patch('time.sleep')
-	def test_proc_PW(self, msleep, sendline):
+	def test_proc_PW(self, sendline):
 		avr = self.avr
 
 		avr.proc_PW('STANDBY')
@@ -484,49 +449,11 @@ class TestMethods(unittest.TestCase):
 		avr = self.avr
 
 		avr.proc_MV('MAX 80')
-		self.assertEqual(avr._volmax, 81)
+		self.assertEqual(avr.volmax, 81)
 
 		avr.proc_MV('99')
-		self.assertEqual(avr._vol, 0)
+		self.assertEqual(avr.vol, 0)
 
 		avr.vol = 0
 
 		self.assertRaises(ValueError, setattr, avr, 'vol', 82)
-
-	def test_readcmd(self):
-		avr = self.avr
-
-		# Test no pending cmd and that timeout is set
-		timov = .5
-		timovcur = [ timov ]
-		def curtimo(*args):
-			assert len(args) in (0, 1)
-
-			if len(args):
-				timovcur[0] = args[0]
-			else:
-				return timovcur[0]
-
-		timo = mock.PropertyMock(side_effect=curtimo)
-		type(avr._ser).timeout = timo
-		avr._ser.read.side_effect = [ '' ]
-
-		r = avr._readcmd(timo=0)
-
-		# original value restored
-		self.assertEqual(avr._ser.timeout, timov)
-
-		# that the timeout was set
-		timo.assert_any_call(0)
-
-		# and it returned an empty command
-		self.assertEqual(r, '')
-
-		# that it got returned the the old value
-		self.assertEqual(avr._ser.timeout, timov)
-
-		avr._ser.read.side_effect = 'MUON\r'
-		r = avr._readcmd(timo=1)
-
-		self.assertEqual(r, 'MUON')
-		self.assertEqual(avr._ser.timeout, timov)

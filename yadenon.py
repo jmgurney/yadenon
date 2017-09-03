@@ -267,7 +267,7 @@ class TestDenon(unittest.TestCase):
 	TEST_DEV = '/dev/tty.usbserial-FTC8DHBJ'
 
 	# comment out to make it easy to restore skip
-	#@unittest.TestCase.skipTest('perf')
+	#@unittest.TestCase.skipTest('real device')
 	def test_comms(self):
 		self.skipTest('perf')
 

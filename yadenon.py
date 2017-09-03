@@ -42,7 +42,11 @@ import twisted.internet.serialport
 __all__ = [ 'DenonAVR' ]
 
 class DenonAVR(object,basic.LineReceiver):
-	delimiter = '\r'
+	'''A Twisted Protocol Handler for Denon Receivers.  This is not yet
+	complete, but has basic functionally, and more will be added as
+	needed.'''
+
+	delimiter = '\r'	# line delimiter is the CR
 	timeOut = 1
 
 	def __init__(self, serdev):
@@ -181,7 +185,8 @@ class DenonAVR(object,basic.LineReceiver):
 		self.sendLine(cmd)
 
 	def lineReceived(self, event):
-		'''Process a line from the AVR.'''
+		'''Process a line from the AVR.  This is internal and will
+		be called by LineReceiver.'''
 
 		#print 'lR:', `event`
 		if len(event) >= 2:
@@ -214,7 +219,9 @@ class DenonAVR(object,basic.LineReceiver):
 	@inlineCallbacks
 	def update(self):
 		'''Update the status of the AVR.  This ensures that the
-		state of the object matches the amp.'''
+		state of the object matches the amp.  Returns a Deferred.
+		When the deferred fires, then all the internal state has
+		been updated and can be examined.'''
 
 		d = self._waitfor('PW')
 

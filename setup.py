@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(name='yadenon',
-      version='1.0.0',
+      version='2.0.0',
       description='Yet Anoter Python Denon AVR module',
       author='John-Mark Gurney',
       author_email='jmg@funkthat.com',

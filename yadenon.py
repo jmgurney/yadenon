@@ -64,6 +64,29 @@ class DenonAVR(object,basic.LineReceiver):
 		self._zm = None
 		self._ms = None
 
+		self._eventsfuns = []
+
+	def register(self, fun):
+		'''Register a callback for when an attribute gets
+		modified or changed.
+
+		As this is async, this is useful to get notifications of
+		when you change an attribute and the value of the amp does
+		change.'''
+
+		self._eventsfuns.append(fun)
+
+	def unregister(self, fun):
+		'''Unregister a function that was previously registered with
+		register.'''
+
+		self._eventsfuns.remove(fun)
+
+	def _notify(self, attr):
+		for i in self._eventsfuns:
+			# XXX - supress exceptions?
+			i(attr)
+
 	def _magic(cmd, attrname, settrans, args, doc):
 		def getter(self):
 			return getattr(self, attrname)
@@ -139,6 +162,8 @@ class DenonAVR(object,basic.LineReceiver):
 		else:
 			raise RuntimeError('unknown PW arg: %s' % `arg`)
 
+		self._notify('power')
+
 	def proc_MU(self, arg):
 		if arg == 'ON':
 			self._mute = True
@@ -160,6 +185,7 @@ class DenonAVR(object,basic.LineReceiver):
 			self._volmax = self._parsevolarg(arg[4:])
 		else:
 			self._vol = self._parsevolarg(arg)
+			self._notify('vol')
 
 	def proc_MS(self, arg):
 		self._ms = arg
@@ -373,6 +399,27 @@ class TestMethods(unittest.TestCase):
 
 		# and we get correct response
 		self.assertEqual(d, 'AB123')
+
+	def test_register(self):
+		avr = self.avr
+
+		efun = mock.MagicMock()
+		avr.register(efun)
+
+		avr.proc_MV('41')
+
+		efun.assert_called_once_with('vol')
+		efun.reset_mock()
+
+		avr.proc_PW('ON')
+
+		efun.assert_called_once_with('power')
+		efun.reset_mock()
+
+		avr.unregister(efun)
+		avr.proc_PW('ON')
+
+		self.assertEqual(efun.call_count, 0)
 
 	@inlineCallbacks
 	def test_vol(self):

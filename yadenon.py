@@ -31,6 +31,7 @@ __license__ = '2-clause BSD license'
 # of the authors and should not be interpreted as representing official policies,
 # either expressed or implied, of the Project.
 
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.protocols import basic
 from twisted.test import proto_helpers
@@ -52,7 +53,7 @@ class DenonAVR(object,basic.LineReceiver):
 	def __init__(self, serdev):
 		'''Specify the serial device connected to the Denon AVR.'''
 
-		self._ser = twisted.internet.serialport.SerialPort(self, serdev, None, baudrate=9600)
+		self._ser = twisted.internet.serialport.SerialPort(self, serdev, reactor, baudrate=9600)
 		self._cmdswaiting = {}
 
 		self._power = None

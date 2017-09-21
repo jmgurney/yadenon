@@ -219,6 +219,9 @@ class DenonAVR(object,basic.LineReceiver):
 	def proc_DC(self, arg):
 		self._diginput = arg
 
+	def proc_CV(self, arg):
+		pass
+
 	def proc_PS(self, arg):
 		if arg == 'FRONT A':
 			self._speakera = True
@@ -426,7 +429,7 @@ class TestMethods(unittest.TestCase):
 	def test_realsequences(self):
 		avr = self.avr
 
-		avr.dataReceived('PSFRONT A\rSITUNER\rMSSTEREO\rSDANALOG\r')
+		avr.dataReceived('PSFRONT A\rSITUNER\rMSSTEREO\rSDANALOG\rDCAUTO\rCVFL 50\r')
 		avr.dataReceived('PSFRONT A\rSIPHONO\rMSSTEREO\rSDANALOG\rDCAUTO\r')
 
 	@inlineCallbacks

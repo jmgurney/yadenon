@@ -53,11 +53,13 @@ class DenonAVR(object,basic.LineReceiver):
 	def __init__(self, serdev):
 		'''Specify the serial device connected to the Denon AVR.'''
 
+		# XXX - is this needed?
 		self._ser = twisted.internet.serialport.SerialPort(self, serdev, reactor, baudrate=9600)
 		self._cmdswaiting = {}
 
 		self._power = None
 		self._vol = None
+		self._mute = None
 		self._volmax = None
 		self._speakera = None
 		self._speakerb = None
@@ -107,6 +109,7 @@ class DenonAVR(object,basic.LineReceiver):
 
 	power = _magic('PW', '_power', bool, { True: 'ON', False: 'STANDBY' }, 'Power status, True if on')
 	mute = _magic('MU', '_mute', bool, { True: 'ON', False: 'OFF' }, 'Mute speakers, True speakers are muted (no sound)')
+	zm = _magic('ZM', '_zm', bool, { True: 'ON', False: 'OFF' }, 'Main Zone On, True if on')
 	z2mute = _magic('Z2MU', '_z2mute', bool, { True: 'ON', False: 'OFF' }, 'Mute Zone 2 speakers, True speakers are muted (no sound)')
 
 	@staticmethod
@@ -173,6 +176,8 @@ class DenonAVR(object,basic.LineReceiver):
 		else:
 			raise RuntimeError('unknown MU arg: %s' % `arg`)
 
+		self._notify('mute')
+
 	def proc_ZM(self, arg):
 		if arg == 'ON':
 			self._zm = True
@@ -181,9 +186,12 @@ class DenonAVR(object,basic.LineReceiver):
 		else:
 			raise RuntimeError('unknown ZM arg: %s' % `arg`)
 
+		self._notify('zm')
+
 	def proc_MV(self, arg):
 		if arg[:4] ==  'MAX ':
 			self._volmax = self._parsevolarg(arg[4:])
+			self._notify('volmax')
 		else:
 			self._vol = self._parsevolarg(arg)
 			self._notify('vol')
@@ -412,9 +420,24 @@ class TestMethods(unittest.TestCase):
 		efun.assert_called_once_with('vol')
 		efun.reset_mock()
 
+		avr.proc_MV('MAX 80')
+
+		efun.assert_called_once_with('volmax')
+		efun.reset_mock()
+
 		avr.proc_PW('ON')
 
 		efun.assert_called_once_with('power')
+		efun.reset_mock()
+
+		avr.proc_MU('ON')
+
+		efun.assert_called_once_with('mute')
+		efun.reset_mock()
+
+		avr.proc_ZM('ON')
+
+		efun.assert_called_once_with('zm')
 		efun.reset_mock()
 
 		avr.unregister(efun)
@@ -483,6 +506,23 @@ class TestMethods(unittest.TestCase):
 
 		self.assertRaises(RuntimeError, avr.proc_MU, 'foobar')
 
+	@mock.patch('yadenon.DenonAVR.sendLine')
+	def test_mute(self, sendline):
+		avr = self.avr
+
+		avr.mute = True
+		sendline.assert_any_call('MUON')
+
+		# Verify the transition doesn't happen
+		self.assertFalse(avr.mute)
+
+		# till we get notification
+		avr.proc_MU('ON')
+		self.assertTrue(avr.mute)
+
+		avr.mute = False
+		sendline.assert_any_call('MUOFF')
+
 	def test_proc_PS(self):
 		avr = self.avr
 
@@ -516,6 +556,23 @@ class TestMethods(unittest.TestCase):
 		self.assertEqual(avr._zm, False)
 
 		self.assertRaises(RuntimeError, avr.proc_ZM, 'foobar')
+
+	@mock.patch('yadenon.DenonAVR.sendLine')
+	def test_zm(self, sendline):
+		avr = self.avr
+
+		avr.zm = True
+		sendline.assert_any_call('ZMON')
+
+		# Verify the transition doesn't happen
+		self.assertFalse(avr.zm)
+
+		# till we get notification
+		avr.proc_ZM('ON')
+		self.assertTrue(avr.zm)
+
+		avr.zm = False
+		sendline.assert_any_call('ZMOFF')
 
 	def test_proc_MV(self):
 		avr = self.avr

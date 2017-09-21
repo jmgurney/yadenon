@@ -279,6 +279,12 @@ class DenonAVR(object,basic.LineReceiver):
 
 		d = yield d
 
+		d = self._waitfor('SI')
+
+		self._sendcmd('SI', '?')
+
+		d = yield d
+
 class TestDenon(unittest.TestCase):
 	TEST_DEV = '/dev/tty.usbserial-FTC8DHBJ'
 
@@ -364,19 +370,28 @@ class TestMethods(unittest.TestCase):
 	def test_update(self):
 		avr = self.avr
 
-		d = avr.update()
+		dfr = avr.update()
 
+		# get the first stage
 		self.assertEqual(self.tr.value(), 'PW?\r')
 
 		avr.dataReceived('PWSTANDBY\r')
-
 		avr.dataReceived('MV51\rMVMAX 80\r')
+		avr.dataReceived('SIPHONO\r')
 
-		d = yield d
+		d = yield dfr
 
-		self.assertEqual(self.tr.value(), 'PW?\rMV?\r')
+		# get the second stage
+		self.assertEqual(self.tr.value(), 'PW?\rMV?\rSI?\r')
 
 		self.assertEqual(avr.power, False)
+		self.assertIsNone(d)
+
+		d = yield dfr
+
+		self.assertEqual(self.tr.value(), 'PW?\rMV?\rSI?\r')
+
+		self.assertEqual(avr.input, 'PHONO')
 		self.assertIsNone(d)
 
 		self.tr.clear()
@@ -386,15 +401,16 @@ class TestMethods(unittest.TestCase):
 		self.assertEqual(self.tr.value(), 'PW?\r')
 
 		avr.dataReceived('PWON\rZMON\rMUOFF\rZ2MUOFF\rMUOFF\rPSFRONT A\r')
-
 		avr.dataReceived('MSDIRECT\rMSDIRECT\rMSDIRECT\rMV51\rMVMAX 80\r')
+		avr.dataReceived('SIDVD\r')
 
 		d = yield d
 
-		self.assertEqual(self.tr.value(), 'PW?\rMV?\r')
+		self.assertEqual(self.tr.value(), 'PW?\rMV?\rSI?\r')
 
 		self.assertEqual(avr.power, True)
 		self.assertIsNone(d)
+		self.assertEqual(avr.input, 'DVD')
 
 	@inlineCallbacks
 	def test_waitfor(self):
@@ -469,6 +485,7 @@ class TestMethods(unittest.TestCase):
 
 		avr.dataReceived('PWON\rZMON\rMUOFF\rZ2MUOFF\rMUOFF\rPSFRONT A\r')
 		avr.dataReceived('MSDIRECT\rMSDIRECT\rMSDIRECT\rMV51\rMVMAX 80\r')
+		avr.dataReceived('SIPHOTO\r')
 
 		d = yield d
 

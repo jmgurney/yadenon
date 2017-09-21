@@ -63,6 +63,7 @@ class DenonAVR(object,basic.LineReceiver):
 		self._volmax = None
 		self._speakera = None
 		self._speakerb = None
+		self._diginput = None
 		self._source = None
 		self._z2mute = None
 		self._input = None
@@ -115,6 +116,7 @@ class DenonAVR(object,basic.LineReceiver):
 	power = _magic('PW', '_power', bool, { True: 'ON', False: 'STANDBY' }, 'Power status, True if on')
 	input = _magic('SI', '_input', str, { x:x for x in ('PHONO', 'TUNER', 'CD', 'V.AUX', 'DVD', 'TV', 'SAT/CBL', 'DVR', ) }, 'Audio Input Source')
 	source = _magic('SD', '_source', str, { x:x for x in ('AUTO', 'HDMI', 'DIGITAL', 'ANALOG', ) }, 'Source type, can be one of AUTO, HDMI, DIGITAL, or ANALOG')
+	diginput = _magic('DC', '_diginput', str, { x:x for x in ('AUTO', 'PCM', 'DTS', ) }, 'Digital input mode, can be one of AUTO, PCM, or DTS')
 	mute = _magic('MU', '_mute', bool, { True: 'ON', False: 'OFF' }, 'Mute speakers, True speakers are muted (no sound)')
 	zm = _magic('ZM', '_zm', bool, { True: 'ON', False: 'OFF' }, 'Main Zone On, True if on')
 	z2mute = _magic('Z2MU', '_z2mute', bool, { True: 'ON', False: 'OFF' }, 'Mute Zone 2 speakers, True speakers are muted (no sound)')
@@ -213,6 +215,9 @@ class DenonAVR(object,basic.LineReceiver):
 	def proc_SD(self, arg):
 		self._source = arg
 		self._notify('source')
+
+	def proc_DC(self, arg):
+		self._diginput = arg
 
 	def proc_PS(self, arg):
 		if arg == 'FRONT A':
@@ -422,6 +427,7 @@ class TestMethods(unittest.TestCase):
 		avr = self.avr
 
 		avr.dataReceived('PSFRONT A\rSITUNER\rMSSTEREO\rSDANALOG\r')
+		avr.dataReceived('PSFRONT A\rSIPHONO\rMSSTEREO\rSDANALOG\rDCAUTO\r')
 
 	@inlineCallbacks
 	def test_waitfor(self):
@@ -693,3 +699,26 @@ class TestMethods(unittest.TestCase):
 		self.assertRaises(ValueError, setattr, avr, 'source', 'bogus')
 		self.assertRaises(ValueError, setattr, avr, 'source', True)
 		self.assertRaises(ValueError, setattr, avr, 'source', 34)
+
+	@mock.patch('yadenon.DenonAVR.sendLine')
+	def test_diginput(self, sendline):
+		avr = self.avr
+
+		avr.diginput = 'AUTO'
+		sendline.assert_any_call('DCAUTO')
+
+		# Verify the transition doesn't happen
+		self.assertIsNone(avr.diginput)
+
+		# till we get notification
+		avr.proc_DC('AUTO')
+		self.assertEqual(avr.diginput, 'AUTO')
+
+		avr.diginput = 'PCM'
+		sendline.assert_any_call('DCPCM')
+
+		avr.diginput = 'DTS'
+
+		self.assertRaises(ValueError, setattr, avr, 'diginput', 'bogus')
+		self.assertRaises(ValueError, setattr, avr, 'diginput', True)
+		self.assertRaises(ValueError, setattr, avr, 'diginput', 34)

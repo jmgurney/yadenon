@@ -64,6 +64,7 @@ class DenonAVR(object,basic.LineReceiver):
 		self._speakera = None
 		self._speakerb = None
 		self._z2mute = None
+		self._input = None
 		self._zm = None
 		self._ms = None
 
@@ -97,7 +98,10 @@ class DenonAVR(object,basic.LineReceiver):
 		def setter(self, arg):
 			arg = settrans(arg)
 			if arg != getattr(self, attrname):
-				self._sendcmd(cmd, args[arg])
+				try:
+					self._sendcmd(cmd, args[arg])
+				except KeyError:
+					raise ValueError(arg)
 
 		return property(getter, setter, doc=doc)
 
@@ -108,6 +112,7 @@ class DenonAVR(object,basic.LineReceiver):
 		return self._ms
 
 	power = _magic('PW', '_power', bool, { True: 'ON', False: 'STANDBY' }, 'Power status, True if on')
+	input = _magic('SI', '_input', str, { x:x for x in ('PHONO', 'TUNER', 'CD', 'V.AUX', 'DVD', 'TV', 'SAT/CBL', 'DVR', ) }, 'Power status, True if on')
 	mute = _magic('MU', '_mute', bool, { True: 'ON', False: 'OFF' }, 'Mute speakers, True speakers are muted (no sound)')
 	zm = _magic('ZM', '_zm', bool, { True: 'ON', False: 'OFF' }, 'Main Zone On, True if on')
 	z2mute = _magic('Z2MU', '_z2mute', bool, { True: 'ON', False: 'OFF' }, 'Mute Zone 2 speakers, True speakers are muted (no sound)')
@@ -198,6 +203,10 @@ class DenonAVR(object,basic.LineReceiver):
 
 	def proc_MS(self, arg):
 		self._ms = arg
+
+	def proc_SI(self, arg):
+		self._input = arg
+		self._notify('input')
 
 	def proc_PS(self, arg):
 		if arg == 'FRONT A':
@@ -440,6 +449,11 @@ class TestMethods(unittest.TestCase):
 		efun.assert_called_once_with('zm')
 		efun.reset_mock()
 
+		avr.proc_SI('TUNER')
+
+		efun.assert_called_once_with('input')
+		efun.reset_mock()
+
 		avr.unregister(efun)
 		avr.proc_PW('ON')
 
@@ -586,3 +600,39 @@ class TestMethods(unittest.TestCase):
 		avr.vol = 0
 
 		self.assertRaises(ValueError, setattr, avr, 'vol', 82)
+
+	def test_proc_SI(self):
+		avr = self.avr
+		avr.proc_SI('PHONO')
+		self.assertEqual(avr.input, 'PHONO')
+
+		avr.proc_SI('TUNER')
+		self.assertEqual(avr.input, 'TUNER')
+
+	@mock.patch('yadenon.DenonAVR.sendLine')
+	def test_input(self, sendline):
+		avr = self.avr
+
+		avr.input = 'PHONO'
+		sendline.assert_any_call('SIPHONO')
+
+		# Verify the transition doesn't happen
+		self.assertIsNone(avr.input)
+
+		# till we get notification
+		avr.proc_SI('PHONO')
+		self.assertEqual(avr.input, 'PHONO')
+
+		avr.input = 'TUNER'
+		sendline.assert_any_call('SITUNER')
+
+		avr.input = 'CD'
+		avr.input = 'V.AUX'
+		avr.input = 'DVD'
+		avr.input = 'TV'
+		avr.input = 'SAT/CBL'
+		avr.input = 'DVR'
+
+		self.assertRaises(ValueError, setattr, avr, 'input', 'bogus')
+		self.assertRaises(ValueError, setattr, avr, 'input', True)
+		self.assertRaises(ValueError, setattr, avr, 'input', 34)

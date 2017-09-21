@@ -123,19 +123,36 @@ class DenonAVR(object,basic.LineReceiver):
 
 	@staticmethod
 	def _makevolarg(arg):
-		arg = int(arg)
+		arg = float(arg)
 		if arg < 0 or arg > 99:
 			raise ValueError('Volume out of range.')
 
 		arg -= 1
 		arg %= 100
 
-		return '%02d' % arg
+		# XXX - this rounding isn't even (going to closest .5)
+		# Force round to 5's
+		arg *= 2
+		arg = int(arg)
+		# Scale to 10x
+		arg *= 5
+		if arg % 10 != 0:
+			return '%03d' % arg
+		else:
+			return '%02d' % (arg / 10)
 
 	@staticmethod
 	def _parsevolarg(arg):
+		if len(arg) == 3:
+			fract = True
+		else:
+			fract = False
+
 		arg = int(arg)
-		if arg < 0 or arg > 99:
+		if fract:
+			arg /= 10.
+
+		if arg < 0 or arg > 99.5:
 			raise ValueError('Volume out of range.')
 
 		arg += 1
@@ -365,12 +382,24 @@ class TestStaticMethods(unittest.TestCase):
 		self.assertRaises(ValueError, DenonAVR._makevolarg, 100)
 
 		self.assertEqual(DenonAVR._makevolarg(0), '99')
+		self.assertEqual(DenonAVR._makevolarg(0.1), '99')
+		self.assertEqual(DenonAVR._makevolarg(0.4), '99')
+		self.assertEqual(DenonAVR._makevolarg(0.5), '995')
+		self.assertEqual(DenonAVR._makevolarg(0.6), '995')
+		self.assertEqual(DenonAVR._makevolarg(0.9), '995')
 		self.assertEqual(DenonAVR._makevolarg(1), '00')
+		self.assertEqual(DenonAVR._makevolarg(1.5), '005')
+		self.assertEqual(DenonAVR._makevolarg(7.5), '065')
 		self.assertEqual(DenonAVR._makevolarg(99), '98')
 
 	def test_parsevolarg(self):
 		self.assertEqual(DenonAVR._parsevolarg('99'), 0)
+		self.assertEqual(DenonAVR._parsevolarg('995'), 0.5)
 		self.assertEqual(DenonAVR._parsevolarg('00'), 1)
+		self.assertEqual(DenonAVR._parsevolarg('005'), 1.5)
+		self.assertEqual(DenonAVR._parsevolarg('075'), 8.5)
+		self.assertEqual(DenonAVR._parsevolarg('085'), 9.5)
+		self.assertEqual(DenonAVR._parsevolarg('80'), 81)
 		self.assertEqual(DenonAVR._parsevolarg('98'), 99)
 
 		self.assertRaises(ValueError, DenonAVR._parsevolarg, '-1')
@@ -526,6 +555,12 @@ class TestMethods(unittest.TestCase):
 
 		self.assertEqual(self.tr.value(), 'MV19\r')
 
+		self.tr.clear()
+
+		avr.vol = 20.5
+
+		self.assertEqual(self.tr.value(), 'MV195\r')
+
 	def test_proc_events(self):
 		avr = self.avr
 
@@ -641,6 +676,9 @@ class TestMethods(unittest.TestCase):
 
 		avr.proc_MV('MAX 80')
 		self.assertEqual(avr.volmax, 81)
+
+		avr.proc_MV('085')
+		self.assertEqual(avr.vol, 9.5)
 
 		avr.proc_MV('99')
 		self.assertEqual(avr.vol, 0)

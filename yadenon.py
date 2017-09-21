@@ -63,6 +63,7 @@ class DenonAVR(object,basic.LineReceiver):
 		self._volmax = None
 		self._speakera = None
 		self._speakerb = None
+		self._source = None
 		self._z2mute = None
 		self._input = None
 		self._zm = None
@@ -112,7 +113,8 @@ class DenonAVR(object,basic.LineReceiver):
 		return self._ms
 
 	power = _magic('PW', '_power', bool, { True: 'ON', False: 'STANDBY' }, 'Power status, True if on')
-	input = _magic('SI', '_input', str, { x:x for x in ('PHONO', 'TUNER', 'CD', 'V.AUX', 'DVD', 'TV', 'SAT/CBL', 'DVR', ) }, 'Power status, True if on')
+	input = _magic('SI', '_input', str, { x:x for x in ('PHONO', 'TUNER', 'CD', 'V.AUX', 'DVD', 'TV', 'SAT/CBL', 'DVR', ) }, 'Audio Input Source')
+	source = _magic('SD', '_source', str, { x:x for x in ('AUTO', 'HDMI', 'DIGITAL', 'ANALOG', ) }, 'Source type, can be one of AUTO, HDMI, DIGITAL, or ANALOG')
 	mute = _magic('MU', '_mute', bool, { True: 'ON', False: 'OFF' }, 'Mute speakers, True speakers are muted (no sound)')
 	zm = _magic('ZM', '_zm', bool, { True: 'ON', False: 'OFF' }, 'Main Zone On, True if on')
 	z2mute = _magic('Z2MU', '_z2mute', bool, { True: 'ON', False: 'OFF' }, 'Mute Zone 2 speakers, True speakers are muted (no sound)')
@@ -207,6 +209,10 @@ class DenonAVR(object,basic.LineReceiver):
 	def proc_SI(self, arg):
 		self._input = arg
 		self._notify('input')
+
+	def proc_SD(self, arg):
+		self._source = arg
+		self._notify('source')
 
 	def proc_PS(self, arg):
 		if arg == 'FRONT A':
@@ -412,6 +418,11 @@ class TestMethods(unittest.TestCase):
 		self.assertIsNone(d)
 		self.assertEqual(avr.input, 'DVD')
 
+	def test_realsequences(self):
+		avr = self.avr
+
+		avr.dataReceived('PSFRONT A\rSITUNER\rMSSTEREO\rSDANALOG\r')
+
 	@inlineCallbacks
 	def test_waitfor(self):
 		avr = self.avr
@@ -468,6 +479,11 @@ class TestMethods(unittest.TestCase):
 		avr.proc_SI('TUNER')
 
 		efun.assert_called_once_with('input')
+		efun.reset_mock()
+
+		avr.proc_SD('ANALOG')
+
+		efun.assert_called_once_with('source')
 		efun.reset_mock()
 
 		avr.unregister(efun)
@@ -653,3 +669,27 @@ class TestMethods(unittest.TestCase):
 		self.assertRaises(ValueError, setattr, avr, 'input', 'bogus')
 		self.assertRaises(ValueError, setattr, avr, 'input', True)
 		self.assertRaises(ValueError, setattr, avr, 'input', 34)
+
+	@mock.patch('yadenon.DenonAVR.sendLine')
+	def test_source(self, sendline):
+		avr = self.avr
+
+		avr.source = 'AUTO'
+		sendline.assert_any_call('SDAUTO')
+
+		# Verify the transition doesn't happen
+		self.assertIsNone(avr.source)
+
+		# till we get notification
+		avr.proc_SD('AUTO')
+		self.assertEqual(avr.source, 'AUTO')
+
+		avr.source = 'HDMI'
+		sendline.assert_any_call('SDHDMI')
+
+		avr.source = 'DIGITAL'
+		avr.source = 'ANALOG'
+
+		self.assertRaises(ValueError, setattr, avr, 'source', 'bogus')
+		self.assertRaises(ValueError, setattr, avr, 'source', True)
+		self.assertRaises(ValueError, setattr, avr, 'source', 34)

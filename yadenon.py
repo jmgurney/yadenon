@@ -161,6 +161,12 @@ class DenonAVR(object,basic.LineReceiver):
 
 		self._sendcmd('MV', arg)
 
+	def vol_up(self):
+		self._sendcmd('MV', 'UP')
+
+	def vol_down(self):
+		self._sendcmd('MV', 'DOWN')
+
 	@property
 	def volmax(self):
 		'Maximum volume supported.'
@@ -725,3 +731,13 @@ class TestMethods(unittest.TestCase):
 		self.assertRaises(ValueError, setattr, avr, 'diginput', 'bogus')
 		self.assertRaises(ValueError, setattr, avr, 'diginput', True)
 		self.assertRaises(ValueError, setattr, avr, 'diginput', 34)
+
+	@mock.patch('yadenon.DenonAVR.sendLine')
+	def test_volupdown(self, sendline):
+		avr = self.avr
+
+		avr.vol_up()
+		sendline.assert_any_call('MVUP')
+
+		avr.vol_down()
+		sendline.assert_any_call('MVDOWN')
